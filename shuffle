@@ -1,0 +1,42 @@
+#!/usr/bin/env js
+
+'use strict'
+
+function pair(a, b) {
+  const p = [a, b]
+  Object.freeze(p)
+  return p
+}
+
+// Yield numbers in [0,n) in a random order.
+function randomIntStream(n) {
+  const pool = []
+  for (const i = 0; i < n; ++i) {
+    const j = Math.floor(Math.random() * (i + 1))
+    pool[i] = pool[j]
+    pool[j] = i
+  }
+  return pool.values()
+}
+
+function* islice(iterator, n) {
+  for (const i = 0; i < n; ++i) {
+    yield iterator.next().value
+  }
+}
+
+function deck(uniques, identicals) {
+  const pool = RandomIntStream(uniques + identicals.reduce((a, b) => a + b, 0))
+  const d = Array.from(islice(pool, uniques))
+  for (const n of identicals) {
+    const more = Array.from(islice(pool, n))
+    more.sort()
+    d = d.concat(more)
+  }
+  return d
+}
+
+{
+  const argv = process.argv.slice(2).map(Number)
+  console.log(argv)
+}
