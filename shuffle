@@ -2,41 +2,72 @@
 
 'use strict'
 
+/*
+  Return a LISP-like pair, mainly used for linked lists.
+*/
 function pair(a, b) {
   const p = [a, b]
   Object.freeze(p)
   return p
 }
 
+function* listIterator(list) {
+  while (list) {
+    yield list[0]
+    list = list[1]
+  }
+}
+
+// OK, not a linked list, but it does what I want.
+const pileLetters = pair('A', 'B')
+
 // Yield numbers in [0,n) in a random order.
 function randomIntStream(n) {
   const pool = []
-  for (const i = 0; i < n; ++i) {
+  for (let i = 0; i < n; ++i) {
     const j = Math.floor(Math.random() * (i + 1))
     pool[i] = pool[j]
     pool[j] = i
   }
-  return pool.values()
+  return pool[Symbol.iterator]()
 }
 
+/*
+  Yield n items from iterator. If iterator runs out of items, yield undefined.
+*/
 function* islice(iterator, n) {
-  for (const i = 0; i < n; ++i) {
+  for (let i = 0; i < n; ++i) {
     yield iterator.next().value
   }
 }
 
 function deck(uniques, identicals) {
-  const pool = RandomIntStream(uniques + identicals.reduce((a, b) => a + b, 0))
+  const pool = randomIntStream(uniques + identicals.reduce((a, b) => a + b, 0))
   const d = Array.from(islice(pool, uniques))
   for (const n of identicals) {
     const more = Array.from(islice(pool, n))
     more.sort()
-    d = d.concat(more)
+    d.push.apply(d, more)
   }
   return d
 }
 
 {
   const argv = process.argv.slice(2).map(Number)
-  console.log(argv)
+  let piles = pair(deck(argv[0], argv.slice(1)))
+  while (piles) {
+    const hand = piles[0]
+    const size = hand.length
+    piles = piles[1]
+    if (hand.every(
+      (value, i) => {
+	const next = i + 1
+	return next >= size || value === hand[next] - 1
+      })) {
+      console.log(`Pile of ${size} cards is already shuffled.`)
+    } else {
+      const pileString = Array.from(listIterator(piles)).map(a => a.length)
+      console.log(`${size} -- ${pileString}`)
+    }
+  }
 }
