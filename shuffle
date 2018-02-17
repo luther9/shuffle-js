@@ -45,7 +45,7 @@ function deck(uniques, identicals) {
   const pool = randomIntStream(uniques + identicals.reduce((a, b) => a + b, 0))
   const d = Array.from(islice(pool, uniques))
   for (const n of identicals) {
-    const more = Array.from(islice(pool, n))
+    const more = [...islice(pool, n)]
     more.sort()
     d.push.apply(d, more)
   }
@@ -66,8 +66,11 @@ function deck(uniques, identicals) {
       })) {
       console.log(`Pile of ${size} cards is already shuffled.`)
     } else {
-      const pileString = Array.from(listIterator(piles)).map(a => a.length)
-      console.log(`${size} -- ${pileString}`)
+      let pileString = ''
+      for (const pile of listIterator(piles)) {
+	pileString += `${pile} -> `
+      }
+      console.log(`${size} -- ${pileString}end`)
     }
   }
 }
