@@ -5,21 +5,56 @@
 /*
   Return a LISP-like pair, mainly used for linked lists.
 */
-function pair(a, b) {
+function Pair(a, b) {
   const p = [a, b]
   Object.freeze(p)
   return p
 }
 
-function* listIterator(list) {
+/*
+  Return an iterator for the linked list.
+*/
+function* listIter(list) {
   while (list) {
     yield list[0]
     list = list[1]
   }
 }
 
+function* map(iter, func) {
+  for (const item of iter) {
+    yield func(item)
+  }
+}
+
+/*
+  Yield n items from iter. If iterator runs out of items, yield undefined.
+*/
+function* islice(iter, n) {
+  for (let i = 0; i < n; ++i) {
+    yield iter.next().value
+  }
+}
+
+/*
+  Show all items in a string surrounded by parenthesis.
+*/
+function iterString(iter) {
+  let str = '('
+  let first = true
+  for (const item of iter) {
+    if (first) {
+      first = false
+    } else {
+      str += ' '
+    }
+    str += item
+  }
+  return str + ')'
+}
+
 // OK, not a linked list, but it does what I want.
-const pileLetters = pair('A', 'B')
+const pileLetters = Pair('A', 'B')
 
 // Yield numbers in [0,n) in a random order.
 function randomIntStream(n) {
@@ -32,45 +67,121 @@ function randomIntStream(n) {
   return pool[Symbol.iterator]()
 }
 
-/*
-  Yield n items from iterator. If iterator runs out of items, yield undefined.
-*/
-function* islice(iterator, n) {
-  for (let i = 0; i < n; ++i) {
-    yield iterator.next().value
-  }
-}
-
 function deck(uniques, identicals) {
   const pool = randomIntStream(uniques + identicals.reduce((a, b) => a + b, 0))
-  const d = Array.from(islice(pool, uniques))
+  const d = [...islice(pool, uniques)]
   for (const n of identicals) {
     const more = [...islice(pool, n)]
     more.sort()
-    d.push.apply(d, more)
+    d.push(...more)
   }
   return d
 }
 
-{
-  const argv = process.argv.slice(2).map(Number)
-  let piles = pair(deck(argv[0], argv.slice(1)))
-  while (piles) {
+function findChunkStart(pile, median, i) {
+  for (; pile[i] > median; ++i) {}
+  return i
+}
+
+function findChunkEnd(pile, i) {
+  for (; i < pile.length && pile[i] === pile[i - 1] + 1; ++i) {}
+  return i
+}
+
+/*
+  Return the lowest number that will go to pile B.
+*/
+function getCutoff(pile) {
+  const median = Math.min(...pile) + (pile.length - 1) / 2
+  let loI = 0
+  while (true) {
+    loI = findChunkStart(pile, median, loI)
+    let hiI = findChunkEnd(pile, loI + 1)
+    const lo = pile[loI]
+    const hi = pile[hiI - 1] + 1
+    if (hi > median) {
+      return median - lo < hi - median
+	? lo
+	: hi
+    }
+    loI = hiI
+  }
+}
+
+function getTarget(pile, i, cutoff) {
+  return +(pile[i] >= cutoff)
+}
+
+function getTransferStart(hand, cutoff) {
+  let i = hand.length - 1
+  const nextPile = getTarget(hand, i, cutoff)
+  while (i > 0 && getTarget(hand, i - 1, cutoff) === nextPile) {
+    --i
+  }
+  return [nextPile, i]
+}
+
+function shuffle(state) {
+  const hand = state.hand
+  const piles = state.piles
+  if (hand) {
+    const newPiles = state.newPiles
+    if (hand.length) {
+      const [nextPile, start] = getTransferStart(hand, state.cutoff)
+      const transfer = hand.splice(start)
+      newPiles[nextPile].push(...transfer)
+      process.stdout.write(`${transfer.length} to ${pileLetters[nextPile]}`)
+      return state
+    }
+    return shuffle({piles: Pair(newPiles[0], Pair(newPiles[1], piles))})
+  }
+  if (piles) {
     const hand = piles[0]
-    const size = hand.length
-    piles = piles[1]
     if (hand.every(
       (value, i) => {
 	const next = i + 1
-	return next >= size || value === hand[next] - 1
+	return next >= hand.length || value === hand[next] - 1
       })) {
-      console.log(`Pile of ${size} cards is already shuffled.`)
-    } else {
-      let pileString = ''
-      for (const pile of listIterator(piles)) {
-	pileString += `${pile} -> `
-      }
-      console.log(`${size} -- ${pileString}end`)
+      process.stdout.write(
+	`Pile of ${hand.length} cards is already shuffled.\n`,
+      )
+      return shuffle({piles: piles[1]})
     }
+    console.log(iterString(map(listIter(piles), p => p.length)))
+    console.log(hand)
+    return shuffle(
+      {
+	piles: piles[1],
+	hand,
+	cutoff: getCutoff(hand),
+	newPiles: Pair([], [])
+      },
+    )
   }
+  process.exit()
+}
+
+{
+  const argv = process.argv.slice(2).map(Number)
+
+  // The state may have piles, hand, cutoff, and newPiles.
+  let state = {piles: Pair(deck(argv[0], argv.slice(1)))}
+
+  process.stdin.on(
+    'close',
+    () => {
+      process.stdout.write('\n')
+      process.exit()
+    },
+  )
+  process.stdin.on(
+    'readable',
+    () => {
+      if (process.stdin.read()) {
+	state = shuffle(state)
+      }
+    },
+  )
+
+  state = shuffle(state)
 }
