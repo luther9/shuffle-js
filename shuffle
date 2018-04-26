@@ -56,15 +56,23 @@ function iterString(iter) {
 // OK, not a linked list, but it does what I want.
 const pileLetters = Pair('A', 'B')
 
-// Yield numbers in [0,n) in a random order.
-function randomIntStream(n) {
-  const pool = []
+/*
+Yield numbers in the range [0,n).
+*/
+function* iota(n) {
   for (let i = 0; i < n; ++i) {
-    const j = Math.floor(Math.random() * (i + 1))
-    pool[i] = pool[j]
-    pool[j] = i
+    yield i
   }
-  return pool[Symbol.iterator]()
+}
+
+// Yield numbers in [0,n) in a random order.
+function* randomIntStream(n) {
+  let pool = [...iota(n)]
+  while (pool.length) {
+    const i = Math.floor(Math.random() * pool.length)
+    yield pool[i]
+    pool = pool.slice(0, i).concat(pool.slice(i + 1))
+  }
 }
 
 function deck(uniques, identicals) {
@@ -148,7 +156,6 @@ function shuffle(state) {
       return shuffle({piles: piles[1]})
     }
     console.log(iterString(map(listIter(piles), p => p.length)))
-    console.log(hand)
     return shuffle(
       {
 	piles: piles[1],
