@@ -3,13 +3,9 @@
 'use strict'
 
 /*
-  Return a LISP-like pair, mainly used for linked lists.
+A list is defined as either undefined or a 2-element Array where [1] is another
+list.
 */
-function Pair(a, b) {
-  const p = [a, b]
-  Object.freeze(p)
-  return p
-}
 
 /*
   Return an iterator for the linked list.
@@ -37,7 +33,7 @@ function* islice(iter, n) {
 }
 
 /*
-  Show all items in a string surrounded by parenthesis.
+Show all items in a string surrounded by parentheses.
 */
 function iterString(iter) {
   let str = '('
@@ -53,8 +49,7 @@ function iterString(iter) {
   return str + ')'
 }
 
-// OK, not a linked list, but it does what I want.
-const pileLetters = Pair('A', 'B')
+const pileLetters = ['A', 'B']
 
 /*
 Yield numbers in the range [0,n).
@@ -141,7 +136,7 @@ function shuffle(state) {
       process.stdout.write(`${transfer.length} to ${pileLetters[nextPile]}`)
       return state
     }
-    return shuffle({piles: Pair(newPiles[0], Pair(newPiles[1], piles))})
+    return shuffle({piles: [newPiles[0], [newPiles[1], piles]]})
   }
   if (piles) {
     const hand = piles[0]
@@ -161,7 +156,7 @@ function shuffle(state) {
 	piles: piles[1],
 	hand,
 	cutoff: getCutoff(hand),
-	newPiles: Pair([], [])
+	newPiles: [[], []]
       },
     )
   }
@@ -172,7 +167,7 @@ function shuffle(state) {
   const argv = process.argv.slice(2).map(Number)
 
   // The state may have piles, hand, cutoff, and newPiles.
-  let state = shuffle({piles: Pair(deck(argv[0], argv.slice(1)))})
+  let state = shuffle({piles: [deck(argv[0], argv.slice(1))]})
 
   process.stdin.on(
     'close',
