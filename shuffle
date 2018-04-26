@@ -72,7 +72,7 @@ function deck(uniques, identicals) {
   const d = [...islice(pool, uniques)]
   for (const n of identicals) {
     const more = [...islice(pool, n)]
-    more.sort()
+    more.sort((a, b) => a - b)
     d.push(...more)
   }
   return d
