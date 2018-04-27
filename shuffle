@@ -52,17 +52,24 @@ function iterString(iter) {
 const pileLetters = ['A', 'B']
 
 /*
-Yield numbers in the range [0,n).
+Yield numbers from 0 to infinity.
 */
-function* iota(n) {
-  for (let i = 0; i < n; ++i) {
+function* count() {
+  for (let i = 0;; ++i) {
     yield i
   }
 }
 
+/*
+Yield numbers in the range [0,n).
+*/
+function range(n) {
+  return islice(count(), n)
+}
+
 // Yield numbers in [0,n) in a random order.
 function* randomIntStream(n) {
-  let pool = [...iota(n)]
+  let pool = [...range(n)]
   while (pool.length) {
     const i = Math.floor(Math.random() * pool.length)
     yield pool[i]
