@@ -35,7 +35,7 @@ function* islice(iter, n) {
 /*
 Show all items in a string surrounded by parentheses.
 */
-function iterString(iter) {
+function iterToString(iter) {
   let str = '('
   let first = true
   for (const item of iter) {
@@ -77,93 +77,136 @@ function* randomIntStream(n) {
   }
 }
 
-function deck(uniques, identicals) {
-  const pool = randomIntStream(uniques + identicals.reduce((a, b) => a + b, 0))
-  const d = [...islice(pool, uniques)]
-  for (const n of identicals) {
-    const more = [...islice(pool, n)]
-    more.sort((a, b) => a - b)
-    d.push(...more)
-  }
-  return d
+function Streak(min, size=1) {
+  return {min, size}
 }
 
-function findChunkStart(pile, median, i) {
-  for (; pile[i] > median; ++i) {}
-  return i
-}
+const StreakArrayProto = {
+  get min() {
+    return Math.min(...this.data.map(x => x.min))
+  },
 
-function findChunkEnd(pile, i) {
-  for (; i < pile.length && pile[i] === pile[i - 1] + 1; ++i) {}
-  return i
+  get size() {
+    return this.data.map(x => x.size).reduce((a, b) => a + b)
+  },
+
+  get length() {
+    return this.data.length
+  },
+
+  get median() {
+    return this.min + this.size / 2
+  },
+
+  concat(b) {
+    if (b.length) {
+      const lastI = this.data.length - 1
+      const last = this.data[lastI]
+      const next = b.data[0]
+      return {
+	__proto__: StreakArrayProto,
+	data: last.min + last.size === next.min
+	  ? this.data.slice(0, lastI)
+	  .concat(Streak(last.min, last.size + next.size), b.data.slice(1))
+	  : this.data.concat(b.data),
+      }
+    }
+    return this
+  },
+
+  get(i) {
+    return this.data[i]
+  },
+
+  slice(begin, end) {
+    return {
+      __proto__: StreakArrayProto,
+      data: this.data.slice(begin, end),
+    }
+  },
 }
 
 /*
-  Return the lowest number that will go to pile B.
+iter is an iterable of integers.
 */
-function getCutoff(pile) {
-  const median = Math.min(...pile) + (pile.length - 1) / 2
-  let loI = 0
-  while (true) {
-    loI = findChunkStart(pile, median, loI)
-    let hiI = findChunkEnd(pile, loI + 1)
-    const lo = pile[loI]
-    const hi = pile[hiI - 1] + 1
-    if (hi > median) {
-      return median - lo < hi - median
-	? lo
-	: hi
+function StreakArray(iter) {
+  let data
+  for (const n of iter) {
+    if (data) {
+      const lastIndex = data.length - 1
+      const current = data[lastIndex]
+      data = n === current.min + current.size
+	? data.slice(0, lastIndex).concat(Streak(current.min, current.size + 1))
+	: data.concat(Streak(n))
+    } else {
+      data = [Streak(n)]
     }
-    loI = hiI
+  }
+  return {
+    __proto__: StreakArrayProto,
+    data: data || [],
   }
 }
 
-function getTarget(pile, i, cutoff) {
-  return +(pile[i] >= cutoff)
+function deck(uniques, identicals) {
+  const pool = randomIntStream(uniques + identicals.reduce((a, b) => a + b, 0))
+  let d = [...islice(pool, uniques)]
+  for (const n of identicals) {
+    const more = [...islice(pool, n)]
+    more.sort((a, b) => a - b)
+    d = more.concat(d)
+  }
+  return StreakArray(d)
 }
 
-function getTransferStart(hand, cutoff) {
-  let i = hand.length - 1
-  const nextPile = getTarget(hand, i, cutoff)
-  while (i > 0 && getTarget(hand, i - 1, cutoff) === nextPile) {
-    --i
-  }
+function getTarget(pile, i, median) {
+  const streak = pile.get(i)
+  const min = streak.min
+  return min + streak.size - median <= median - min
+}
+
+function getTransferStart(hand, median) {
+  const nextPile = getTarget(hand, 0, median)
+  let i = 0
+  for (; i < hand.length && getTarget(hand, i, median) === nextPile; ++i) {}
   return [nextPile, i]
 }
 
 function shuffle(state) {
   const hand = state.hand
   const piles = state.piles
+  const median = state.median
   if (hand) {
     const newPiles = state.newPiles
     if (hand.length) {
-      const [nextPile, start] = getTransferStart(hand, state.cutoff)
-      const transfer = hand.splice(start)
-      newPiles[nextPile].push(...transfer)
-      process.stdout.write(`${transfer.length} to ${pileLetters[nextPile]}`)
-      return state
+      const [nextPile, end] = getTransferStart(hand, median)
+      const transfer = hand.slice(0, end)
+      process.stdout.write(`${transfer.size} to ${pileLetters[+nextPile]}`)
+      return {
+	piles,
+	median,
+	hand: hand.slice(end),
+	newPiles: [
+	  nextPile ? newPiles[0] : transfer.concat(newPiles[0]),
+	  nextPile ? transfer.concat(newPiles[1]) : newPiles[1],
+	],
+      }
     }
     return shuffle({piles: [newPiles[0], [newPiles[1], piles]]})
   }
   if (piles) {
     const hand = piles[0]
-    if (hand.every(
-      (value, i) => {
-	const next = i + 1
-	return next >= hand.length || value === hand[next] - 1
-      })) {
-      process.stdout.write(
-	`Pile of ${hand.length} cards is already shuffled.\n`,
-      )
+    if (hand.length === 1) {
+      console.log(`Pile of ${hand.size} cards is already shuffled.`,)
       return shuffle({piles: piles[1]})
     }
-    console.log(iterString(map(listIter(piles), p => p.length)))
+    console.log(iterToString(map(listIter(piles), p => p.size)))
     return shuffle(
       {
 	piles: piles[1],
 	hand,
-	cutoff: getCutoff(hand),
-	newPiles: [[], []]
+	median: hand.median,
+	newPiles: [StreakArray([]), StreakArray([])]
       },
     )
   }
@@ -173,7 +216,7 @@ function shuffle(state) {
 {
   const argv = process.argv.slice(2).map(Number)
 
-  // The state may have piles, hand, cutoff, and newPiles.
+  // The state may have piles, hand, median, and newPiles.
   let state = shuffle({piles: [deck(argv[0], argv.slice(1))]})
 
   process.stdin.on(
@@ -183,6 +226,7 @@ function shuffle(state) {
       process.exit()
     },
   )
+
   process.stdin.on(
     'readable',
     function() {
