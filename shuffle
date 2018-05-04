@@ -121,7 +121,7 @@ const StreakArrayProto = {
   StreakArray objects. Consolodate the boundry streaks, if necessary.
   */
   concat(...arrays) {
-    const result = this
+    let result = this
     while (arrays.length) {
       const current = arrays[0]
       if (!result.length) {
@@ -130,13 +130,13 @@ const StreakArrayProto = {
 	const lastI = result.length - 1
 	const last = result.data[lastI]
 	const next = current.data[0]
-	return {
+	result = {
 	  __proto__: StreakArrayProto,
 	  data: last.min + last.size === next.min
-	    ? this.data.slice(0, lastI)
+	    ? result.data.slice(0, lastI)
 	    .concat(
 	      Streak(last.min, last.size + next.size), current.data.slice(1))
-	    : this.data.concat(current.data),
+	    : result.data.concat(current.data),
 	}
       }
       arrays = arrays.slice(1)
