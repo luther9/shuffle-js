@@ -17,6 +17,9 @@ function* listIter(list) {
   }
 }
 
+/*
+Similar to Array.prototype.map, but for iterators.
+*/
 function* map(iter, func) {
   for (const item of iter) {
     yield func(item)
@@ -48,8 +51,6 @@ function iterToString(iter) {
   }
   return str + ')'
 }
-
-const pileLetters = ['A', 'B']
 
 /*
 Yield numbers from 0 to infinity.
@@ -159,13 +160,21 @@ function deck(uniques, identicals) {
   return StreakArray(d)
 }
 
+/*
+Return the letter of the pile that the streak at index i needs to go to.
+*/
 function getTarget(pile, i, median) {
   const streak = pile.get(i)
   const min = streak.min
   return min + streak.size - median <= median - min
+    ? 'B' : 'A'
 }
 
-function getTransferStart(hand, median) {
+/*
+Calculate the length of the prefix of hand whose streaks all belong to the same
+target pile. Return the target pile letter and the length of that prefix.
+*/
+function getTransferData(hand, median) {
   const nextPile = getTarget(hand, 0, median)
   let i = 0
   for (; i < hand.length && getTarget(hand, i, median) === nextPile; ++i) {}
@@ -179,20 +188,20 @@ function shuffle(state) {
   if (hand) {
     const newPiles = state.newPiles
     if (hand.length) {
-      const [nextPile, end] = getTransferStart(hand, median)
+      const [nextPile, end] = getTransferData(hand, median)
       const transfer = hand.slice(0, end)
-      process.stdout.write(`${transfer.size} to ${pileLetters[+nextPile]}`)
+      process.stdout.write(`${transfer.size} to ${nextPile}`)
+      const isA = nextPile === 'A'
       return {
-	piles,
-	median,
+	piles, median,
 	hand: hand.slice(end),
-	newPiles: [
-	  nextPile ? newPiles[0] : transfer.concat(newPiles[0]),
-	  nextPile ? transfer.concat(newPiles[1]) : newPiles[1],
-	],
+	newPiles: {
+	  A: isA ? transfer.concat(newPiles.A) : newPiles.A,
+	  B: isA ? newPiles.B : transfer.concat(newPiles.B),
+	},
       }
     }
-    return shuffle({piles: [newPiles[0], [newPiles[1], piles]]})
+    return shuffle({piles: [newPiles.A, [newPiles.B, piles]]})
   }
   if (piles) {
     const hand = piles[0]
@@ -206,7 +215,7 @@ function shuffle(state) {
 	piles: piles[1],
 	hand,
 	median: hand.median,
-	newPiles: [StreakArray([]), StreakArray([])]
+	newPiles: {A: StreakArray([]), B: StreakArray([])},
       },
     )
   }
