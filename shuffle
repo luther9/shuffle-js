@@ -78,41 +78,70 @@ function* randomIntStream(n) {
   }
 }
 
+/*
+A Streak represents a sequence of consecutive integers. In this program, it
+represents a sequence of cards which we will not split further.
+*/
 function Streak(min, size=1) {
   return {min, size}
 }
 
 const StreakArrayProto = {
+  /*
+  The lowest integer in the StreakArray.
+  */
   get min() {
     return Math.min(...this.data.map(x => x.min))
   },
 
+  /*
+  The sum of the sizes of all the streaks.
+  */
   get size() {
     return this.data.map(x => x.size).reduce((a, b) => a + b)
   },
 
+  /*
+  The raw length of the array. If it equals 1, this card pile is considered
+  shuffled.
+  */
   get length() {
     return this.data.length
   },
 
+  /*
+  The median of the numbers represented by the StreakArray.
+  */
   get median() {
     return this.min + this.size / 2
   },
 
-  concat(b) {
-    if (b.length) {
-      const lastI = this.data.length - 1
-      const last = this.data[lastI]
-      const next = b.data[0]
-      return {
-	__proto__: StreakArrayProto,
-	data: last.min + last.size === next.min
-	  ? this.data.slice(0, lastI)
-	  .concat(Streak(last.min, last.size + next.size), b.data.slice(1))
-	  : this.data.concat(b.data),
+  /*
+  Return the concatenation of this StreakArray with the arguments, which must be
+  StreakArray objects. Consolodate the boundry streaks, if necessary.
+  */
+  concat(...arrays) {
+    const result = this
+    while (arrays.length) {
+      const current = arrays[0]
+      if (!result.length) {
+	result = current
+      } else if (current.length) {
+	const lastI = result.length - 1
+	const last = result.data[lastI]
+	const next = current.data[0]
+	return {
+	  __proto__: StreakArrayProto,
+	  data: last.min + last.size === next.min
+	    ? this.data.slice(0, lastI)
+	    .concat(
+	      Streak(last.min, last.size + next.size), current.data.slice(1))
+	    : this.data.concat(current.data),
+	}
       }
+      arrays = arrays.slice(1)
     }
-    return this
+    return result
   },
 
   get(i) {
