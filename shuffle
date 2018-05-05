@@ -144,10 +144,16 @@ const StreakArrayProto = {
     return result
   },
 
+  /*
+  Return the Streak at raw index i.
+  */
   get(i) {
     return this.data[i]
   },
 
+  /*
+  Like a regular slice, but return a StreakArray.
+  */
   slice(begin, end) {
     return {
       __proto__: StreakArrayProto,
@@ -178,6 +184,10 @@ function StreakArray(iter) {
   }
 }
 
+/*
+Return an initial deck to be shuffled. uniques is the number of unique cards.
+identicals is an array of numbers of identical or pre-shuffled cards.
+*/
 function deck(uniques, identicals) {
   const pool = randomIntStream(uniques + identicals.reduce((a, b) => a + b, 0))
   let d = [...islice(pool, uniques)]
@@ -210,6 +220,10 @@ function getTransferData(hand, median) {
   return [nextPile, i]
 }
 
+/*
+Called at program start and after every input. Both the argument and the return
+value are an object representing the state that the physical cards should be in.
+*/
 function shuffle(state) {
   const hand = state.hand
   const piles = state.piles
@@ -244,7 +258,10 @@ function shuffle(state) {
 	piles: piles[1],
 	hand,
 	median: hand.median,
-	newPiles: {A: StreakArray([]), B: StreakArray([])},
+	newPiles: {
+	  A: StreakArray([]),
+	  B: StreakArray([]),
+	},
       },
     )
   }
